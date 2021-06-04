@@ -6,7 +6,7 @@ The objective is to implement an In-band Telemetry tool using P4.
 
 We will use the following topology. It is a single
 pod of a fat-tree topology and henceforth referred to as pod-topo:
-![pod-topo](./inband_telemetry/pod-topo/pod-topo.png)
+![pod-topo](./pod-topo/pod-topo.png)
 
 ## Prerequisite
 make sure to have:
