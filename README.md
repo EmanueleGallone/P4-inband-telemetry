@@ -1,4 +1,4 @@
-# Implementing Basic Forwarding
+![Generic badge](https://img.shields.io/badge/PythonVersions-3.8-green.svg)
 
 ## Introduction
 
@@ -8,29 +8,16 @@ We will use the following topology. It is a single
 pod of a fat-tree topology and henceforth referred to as pod-topo:
 ![pod-topo](./pod-topo/pod-topo.png)
 
+## Prerequisite
+make sure to have:
+* P4-Dev environment (easiest way is to use a [VM](https://drive.google.com/file/d/13SwWBEnApknu84fG9otwbL5NC78tut-d/view))
+* scapy installed (see requirements.txt)
+
 ## Getting started
 Run the following command to start the program
 ```
 make run
 ```
-### Troubleshooting
-
-There are several problems that might manifest as you develop your program:
-
-1. `basic.p4` might fail to compile. In this case, `make run` will
-report the error emitted from the compiler and halt.
-
-2. `basic.p4` might compile but fail to support the control plane
-rules in the `s1-runtime.json` through `s3-runtime.json` files that
-`make run` tries to install using P4Runtime. In this case, `make run` will
-report errors if control plane rules cannot be installed. Use these error
-messages to fix your `basic.p4` implementation.
-
-3. `basic.p4` might compile, and the control plane rules might be
-installed, but the switch might not process packets in the desired
-way. The `logs/sX.log` files contain detailed logs
-that describing how each switch processes each packet. The output is
-detailed and can help pinpoint logic errors in your implementation.
 
 #### Cleaning up Mininet
 
