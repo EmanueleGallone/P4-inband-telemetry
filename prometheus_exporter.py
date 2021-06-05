@@ -2,6 +2,8 @@ from prometheus_client import start_http_server, Summary
 import random
 import time
 
+#TODO choose which metrics to collect
+
 REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
 
 
