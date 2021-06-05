@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The objective is to implement an In-band Telemetry tool using P4.
+The objective is to implement an In-band Telemetry tool using P4, allowing Prometheus to scrape the data.
 
 We will use the following topology. It is a single
 pod of a fat-tree topology and henceforth referred to as pod-topo:
