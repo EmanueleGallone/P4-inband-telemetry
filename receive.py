@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
-import argparse
-import sys
-import socket
-import random
-import struct
 
-from time import sleep
-from scapy.all import Packet, bind_layers, XByteField, FieldLenField, BitField, ShortField, IntField, PacketListField, Ether, IP, UDP, sendp, get_if_hwaddr, sniff
+from scapy.all import Packet, bind_layers, BitField, ShortField, PacketListField, Ether, IP, UDP, sniff
+import prometheus_client
 
 
 class InBandNetworkTelemetry(Packet):
@@ -25,20 +20,23 @@ class InBandNetworkTelemetry(Packet):
     def extract_padding(self, p):
                 return "", p
 
+
 class nodeCount(Packet):
-  name = "nodeCount"
-  fields_desc = [ ShortField("count", 0),
+    name = "nodeCount"
+    fields_desc = [ ShortField("count", 0),
                   PacketListField("INT", [], InBandNetworkTelemetry, count_from=lambda pkt:(pkt.count*1))]
 
+
 def handle_pkt(pkt):
-  pkt.show2()
+    pkt.show2()
+
 
 def main():
+    iface = 'eth0'
+    print("Start sniffing")
+    bind_layers(IP, nodeCount, proto=253)
+    sniff(filter="ip proto 253", iface=iface, prn=lambda x: handle_pkt(x))
 
-  iface = 'eth0'
-  print("Start sniffing")
-  bind_layers(IP, nodeCount, proto = 253)
-  sniff(filter = "ip proto 253", iface = iface, prn = lambda x: handle_pkt(x))
 
 if __name__ == '__main__':
     main()
