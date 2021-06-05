@@ -3,7 +3,7 @@ import argparse
 import sys
 from topology_parser import TopologyParser
 
-# TODO erase this and topology_parser.py. Used instead the program_switch_cli within run.py with files
+# NOT USED
 
 class CustomConsole(object):
     def __init__(self, port):

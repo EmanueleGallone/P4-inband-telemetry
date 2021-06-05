@@ -306,7 +306,6 @@ class ExerciseRunner:
             if 'runtime_json' in sw_dict:
                 self.program_switch_p4runtime(sw_name, sw_dict)
 
-        config_tool.autoset(self.topo_file_path)
 
     def program_hosts(self):
         """ Execute any commands provided in the topology.json file on each Mininet host
