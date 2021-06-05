@@ -16,16 +16,16 @@ const bit<8> IP_PROTO = 253;
 typedef bit<48> macAddr_v;
 typedef bit<32> ip4Addr_v;
 
-typedef bit<31> switchID_v;
-typedef bit<9> ingress_port_v;
-typedef bit<9> egress_port_v;
-typedef bit<9>  egressSpec_v;
+typedef bit<31>  switchID_v;
+typedef bit<9>   ingress_port_v;
+typedef bit<9>   egress_port_v;
+typedef bit<9>   egressSpec_v;
 typedef bit<48>  ingress_global_timestamp_v;
 typedef bit<48>  egress_global_timestamp_v;
 typedef bit<32>  enq_timestamp_v;
-typedef bit<19> enq_qdepth_v;
-typedef bit<32> deq_timedelta_v;
-typedef bit<19> deq_qdepth_v;
+typedef bit<19>  enq_qdepth_v;
+typedef bit<32>  deq_timedelta_v;
+typedef bit<19>  deq_qdepth_v;
 
 header ethernet_h {
     macAddr_v dstAddr;

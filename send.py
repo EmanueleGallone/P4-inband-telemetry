@@ -35,17 +35,19 @@ def main():
     addr = "10.0.4.4"
     iface = 'eth0'
 
-    bind_layers(IP, nodeCount, proto = 253)
+    bind_layers(IP, nodeCount, proto=253)
     pkt = Ether(src=get_if_hwaddr(iface), dst="ff:ff:ff:ff:ff:ff") / IP(
-        dst=addr, proto=253) / nodeCount(count = 0,INT=[])
-
-    #sendp(pkt, iface=iface)
-    #pkt.show2()
+        dst=addr, proto=253) / nodeCount(count=0, INT=[])
 
     while True:
         sendp(pkt, iface=iface)
         pkt.show2()
         sleep(0.2)
 
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='In-Band Telemetry packet sender')
+    parser.add_argument('-d', '--destinationIP',
+                        help='set the destinationIP where to send the packets',
+                        default='10.0.4.4')
     main()

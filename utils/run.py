@@ -32,6 +32,9 @@ from mininet.cli import CLI
 from p4runtime_switch import P4RuntimeSwitch
 import p4runtime_lib.simple_controller
 
+import switch_register_editor as config_tool
+
+
 def configureP4Switch(**switch_args):
     """ Helper class that is called by mininet to initialize
         the virtual P4 switches. The purpose is to ensure each
@@ -166,6 +169,7 @@ class ExerciseRunner:
 
         self.quiet = quiet
         self.logger('Reading topology file.')
+        self.topo_file_path = topo_file
         with open(topo_file, 'r') as f:
             topo = json.load(f)
         self.hosts = topo['hosts']
@@ -204,7 +208,6 @@ class ExerciseRunner:
         self.do_net_cli()
         # stop right after the CLI is exited
         self.net.stop()
-
 
     def parse_links(self, unparsed_links):
         """ Given a list of links descriptions of the form [node1, node2, latency, bandwidth]
@@ -302,6 +305,8 @@ class ExerciseRunner:
                 self.program_switch_cli(sw_name, sw_dict)
             if 'runtime_json' in sw_dict:
                 self.program_switch_p4runtime(sw_name, sw_dict)
+
+        config_tool.autoset(self.topo_file_path)
 
     def program_hosts(self):
         """ Execute any commands provided in the topology.json file on each Mininet host
