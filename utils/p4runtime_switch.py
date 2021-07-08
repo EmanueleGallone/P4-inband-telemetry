@@ -38,10 +38,12 @@ class P4RuntimeSwitch(P4Switch):
                  device_id = None,
                  enable_debugger = False,
                  log_file = None,
+                 cpu_port = 255,
                  **kwargs):
         Switch.__init__(self, name, **kwargs)
         assert (sw_path)
         self.sw_path = sw_path
+        self.cpu_port = cpu_port
         # make sure that the provided sw_path is valid
         pathCheck(sw_path)
 
@@ -121,6 +123,9 @@ class P4RuntimeSwitch(P4Switch):
             args.append('--thrift-port ' + str(self.thrift_port))
         if self.grpc_port:
             args.append("-- --grpc-server-addr 0.0.0.0:" + str(self.grpc_port))
+        if self.cpu_port:
+            args.append("--cpu-port " + str(self.cpu_port))
+
         cmd = ' '.join(args)
         info(cmd + "\n")
 
