@@ -6,6 +6,7 @@ const bit<16> TYPE_IPV4 = 0x800;
 const bit<8> IP_PROTO = 253;
 
 #define MAX_HOPS 10
+#define CONTROLLER_PORT 255
 
 
 /*************************************************************************
@@ -48,6 +49,20 @@ header ipv4_h {
     ip4Addr_v dstAddr;
 }
 
+@controller_header("packet_out")
+header packet_out_header_t {
+    bit<9> egress_port;
+    bit<7> _pad;
+}
+
+@controller_header("packet_in")
+header packet_in_header_t {
+    ip4Addr_v src_address;
+    ip4Addr_v dst_address;
+    ingress_port_v ingress_port;
+    bit<7> _pad;
+}
+
 header nodeCount_h{
     bit<16>  count;
 }
@@ -75,14 +90,21 @@ struct parser_metadata_t {
 
 struct metadata {
     ingress_metadata_t   ingress_metadata;
-    parser_metadata_t   parser_metadata;
+    parser_metadata_t    parser_metadata;
 }
 
-struct headers {
-    ethernet_h         ethernet;
-    ipv4_h             ipv4;
-    nodeCount_h        nodeCount;
+struct headers_t {
+    packet_out_header_t                packet_out;
+    packet_in_header_t                 packet_in;
+    ethernet_h                         ethernet;
+    ipv4_h                             ipv4;
+    nodeCount_h                        nodeCount;
     InBandNetworkTelemetry_h[MAX_HOPS] INT;
+}
+
+error {
+    IPv4IncorrectVersion,
+    IPv4OptionsNotSupported
 }
 
 /*************************************************************************
@@ -90,19 +112,27 @@ struct headers {
 *************************************************************************/
 
 parser MyParser(packet_in packet,
-                out headers hdr,
+                out headers_t hdr,
                 inout metadata meta,
                 inout standard_metadata_t standard_metadata) {
 
     state start {
-        transition parse_ethernet;
+        transition select(standard_metadata.ingress_port) {
+        	CONTROLLER_PORT: parse_controller_packet_out;
+        	default:	     parse_ethernet;
+        }
+    }
+
+    state parse_controller_packet_out {
+    	packet.extract(hdr.packet_out);
+    	transition accept;
     }
 
     state parse_ethernet {
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
             TYPE_IPV4: parse_ipv4;
-            default: accept;
+            default:   accept;
         }
     }
 
@@ -110,7 +140,7 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.ipv4);
         transition select(hdr.ipv4.protocol){
             IP_PROTO: parse_count;
-            default: accept;
+            default:  accept;
         }
     }
 
@@ -118,7 +148,7 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.nodeCount);
         meta.parser_metadata.remaining = hdr.nodeCount.count;
         transition select(meta.parser_metadata.remaining) {
-            0 : accept;
+            0 :      accept;
             default: parse_int;
         }
     }
@@ -127,7 +157,7 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.INT.next);
         meta.parser_metadata.remaining = meta.parser_metadata.remaining  - 1;
         transition select(meta.parser_metadata.remaining) {
-            0 : accept;
+            0 :      accept;
             default: parse_int;
         }
     } 
@@ -136,7 +166,7 @@ parser MyParser(packet_in packet,
 ************   C H E C K S U M    V E R I F I C A T I O N   *************
 *************************************************************************/
 
-control MyVerifyChecksum(inout headers hdr, inout metadata meta) {   
+control MyVerifyChecksum(inout headers_t hdr, inout metadata meta) {   
     apply {  }
 }
 
@@ -145,17 +175,37 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 **************  I N G R E S S   P R O C E S S I N G   *******************
 *************************************************************************/
 
-control MyIngress(inout headers hdr,
+control packetio_ingress(inout headers_t hdr,
+                         inout standard_metadata_t standard_metadata) {
+    apply {
+        if (standard_metadata.ingress_port == CONTROLLER_PORT) {
+            standard_metadata.egress_spec = (egress_port_v)hdr.packet_out.egress_port;
+            hdr.packet_out.setInvalid();
+            exit; // no need to further execute the pipeline
+        }
+    }
+}
+
+control MyIngress(inout headers_t hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
     action drop() {
         mark_to_drop(standard_metadata);
     }
+
+    action send_to_controller() {
+    	standard_metadata.egress_spec = CONTROLLER_PORT;
+    }
+
+    action ethernet_forward(macAddr_v dstAddr) {
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+        hdr.ethernet.dstAddr = dstAddr;
+    }
     
     action ipv4_forward(macAddr_v dstAddr, egressSpec_v port) {
         standard_metadata.egress_spec = port;
-        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
-        hdr.ethernet.dstAddr = dstAddr;
+        ethernet_forward(dstAddr);
+
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
 
@@ -172,19 +222,56 @@ control MyIngress(inout headers hdr,
         default_action = NoAction();
     }
 
+     table dbg_table {
+        key = {
+            standard_metadata.ingress_port : exact;
+            standard_metadata.egress_spec : exact;
+            standard_metadata.egress_port : exact;
+            /*
+            standard_metadata.clone_spec : exact;
+            standard_metadata.instance_type : exact;
+            standard_metadata.packet_length : exact;
+            standard_metadata.enq_timestamp : exact;
+            standard_metadata.enq_qdepth : exact;
+            standard_metadata.deq_timedelta : exact;
+            standard_metadata.deq_qdepth : exact;
+            standard_metadata.ingress_global_timestamp : exact;
+            standard_metadata.egress_global_timestamp : exact;
+            standard_metadata.lf_field_list : exact;
+            standard_metadata.mcast_grp : exact;
+            standard_metadata.resubmit_flag : exact;
+            standard_metadata.egress_rid : exact;
+            standard_metadata.checksum_error : exact;
+            standard_metadata.recirculate_flag : exact;
+            */
+            hdr.ipv4.srcAddr : exact;
+            hdr.ipv4.dstAddr : exact;
+            hdr.packet_in.src_address : exact;
+            hdr.packet_in.dst_address : exact;
+        }
+        actions = { NoAction; }
+        const default_action = NoAction();
+    }
+
     
     apply {
         if (hdr.ipv4.isValid()) {
-            ipv4_lpm.apply();
+            dbg_table.apply();
+            if (ipv4_lpm.apply().hit) {
+
+            }
+            else { // miss
+            	send_to_controller();
+            }
         }
     }
-}
+} //end of MyIngress
 
 /*************************************************************************
 ****************  E G R E S S   P R O C E S S I N G   *******************
 *************************************************************************/
 
-control MyEgress(inout headers hdr,
+control MyEgress(inout headers_t hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
 
@@ -206,6 +293,13 @@ control MyEgress(inout headers hdr,
         hdr.ipv4.totalLen = hdr.ipv4.totalLen + 32;
     }
 
+    action set_packet_in_data() {
+            hdr.packet_in.setValid();
+            hdr.packet_in.src_address = hdr.ipv4.srcAddr;
+            hdr.packet_in.dst_address = hdr.ipv4.dstAddr;
+            hdr.packet_in.ingress_port = standard_metadata.ingress_port;
+    }
+
     table swtrace {
         actions = { 
 	        add_swtrace; 
@@ -213,10 +307,45 @@ control MyEgress(inout headers hdr,
         }
         default_action = NoAction();      
     }
+
+     table dbg_table {
+        key = {
+            standard_metadata.ingress_port : exact;
+            standard_metadata.egress_spec : exact;
+            standard_metadata.egress_port : exact;
+            /*
+            standard_metadata.clone_spec : exact;
+            standard_metadata.instance_type : exact;
+            standard_metadata.packet_length : exact;
+            standard_metadata.enq_timestamp : exact;
+            standard_metadata.enq_qdepth : exact;
+            standard_metadata.deq_timedelta : exact;
+            standard_metadata.deq_qdepth : exact;
+            standard_metadata.ingress_global_timestamp : exact;
+            standard_metadata.egress_global_timestamp : exact;
+            standard_metadata.lf_field_list : exact;
+            standard_metadata.mcast_grp : exact;
+            standard_metadata.resubmit_flag : exact;
+            standard_metadata.egress_rid : exact;
+            standard_metadata.checksum_error : exact;
+            standard_metadata.recirculate_flag : exact;
+            */
+            hdr.ipv4.srcAddr : exact;
+            hdr.ipv4.dstAddr : exact;
+            hdr.packet_in.src_address : exact;
+            hdr.packet_in.dst_address : exact;
+        }
+        actions = { NoAction; }
+        const default_action = NoAction();
+    }
     
     apply {
         if (hdr.nodeCount.isValid()) {
             swtrace.apply();
+        }
+        if (standard_metadata.egress_port == CONTROLLER_PORT) {
+            set_packet_in_data();
+            dbg_table.apply();
         }
     } 
 }
@@ -225,7 +354,7 @@ control MyEgress(inout headers hdr,
 *************   C H E C K S U M    C O M P U T A T I O N   **************
 *************************************************************************/
 
-control MyComputeChecksum(inout headers hdr, inout metadata meta) {
+control MyComputeChecksum(inout headers_t hdr, inout metadata meta) {
      apply {
 	update_checksum(
 	    hdr.ipv4.isValid(),
@@ -249,7 +378,7 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 ***********************  D E P A R S E R  *******************************
 *************************************************************************/
 
-control MyDeparser(packet_out packet, in headers hdr) {
+control MyDeparser(packet_out packet, in headers_t hdr) {
     apply {
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
