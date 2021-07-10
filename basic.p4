@@ -57,8 +57,6 @@ header packet_out_header_t {
 
 @controller_header("packet_in")
 header packet_in_header_t {
-    ip4Addr_v src_address;
-    ip4Addr_v dst_address;
     ingress_port_v ingress_port;
     bit<7> _pad;
 }
@@ -218,8 +216,6 @@ control MyIngress(inout headers_t hdr,
             standard_metadata.egress_port : exact;
             hdr.ipv4.srcAddr : exact;
             hdr.ipv4.dstAddr : exact;
-            hdr.packet_in.src_address : exact;
-            hdr.packet_in.dst_address : exact;
         }
         actions = { NoAction; }
         const default_action = NoAction();
@@ -273,8 +269,6 @@ control MyEgress(inout headers_t hdr,
 
     action set_packet_in_data() {
             hdr.packet_in.setValid();
-            hdr.packet_in.src_address = hdr.ipv4.srcAddr;
-            hdr.packet_in.dst_address = hdr.ipv4.dstAddr;
             hdr.packet_in.ingress_port = standard_metadata.ingress_port;
     }
 
@@ -293,8 +287,6 @@ control MyEgress(inout headers_t hdr,
             standard_metadata.egress_port : exact;
             hdr.ipv4.srcAddr : exact;
             hdr.ipv4.dstAddr : exact;
-            hdr.packet_in.src_address : exact;
-            hdr.packet_in.dst_address : exact;
         }
         actions = { NoAction; }
         const default_action = NoAction();

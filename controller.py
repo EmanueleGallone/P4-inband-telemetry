@@ -15,12 +15,12 @@ import p4runtime_sh.shell as sh
 from p4runtime_sh.shell import TableEntry
 from google.protobuf.json_format import MessageToDict
 from p4.v1.p4runtime_pb2 import StreamMessageResponse
+from scapy.layers.inet import IP
+from scapy.layers.l2 import Ether
 
 METADATA_ID_TO_HEADER = {  # as a reminder
-    1: 'src_address',
-    2: 'dst_address',
-    3: 'ingress_port',
-    4: '_pad'
+    1: 'ingress_port',
+    2: '_pad'
 }
 
 # TODO use a db
@@ -37,7 +37,25 @@ DB_IP_MAC = {
     "10.0.4.4": "08:00:00:00:04:00"
 }
 
-# Todo use packet_out to deliver also the first packet
+# TODO use packet_out to deliver also the first packet
+
+
+def _scapy_parse(packet: dict):
+    """
+    Trying to decode the packet payload sent by the data plane.
+    """
+    try:
+        payload_base64 = packet['packet']['payload'].encode()
+
+        # assuming it has a Ethernet layer. Scapy will handle the rest.
+        packet = Ether(base64.decodebytes(payload_base64))
+
+        if IP in packet:
+            return packet
+
+        return None  # actually not interested in packet not having IP layer
+    except Exception as e:  # FIXME
+        print(e)
 
 
 def _parse_packet_metadata(packet: StreamMessageResponse) -> tuple:
@@ -46,19 +64,16 @@ def _parse_packet_metadata(packet: StreamMessageResponse) -> tuple:
     """
     if packet is None:
         return ()
-
     packet = MessageToDict(packet)
-    print(packet)
 
-    src_address_base64 = packet['packet']['metadata'][0]['value'].encode()
-    dst_address_base64 = packet['packet']['metadata'][1]['value'].encode()
-    # payload_base64 = packet['packet']['payload'].encode()
-    # ingress_port = packet['packet']['metadata'][2]['value']  # retrieving ingress_port; not used, yet
+    # Decoding Header
+    ingress_port_base64 = packet['packet']['metadata'][0]['value'].encode()
+    ingress_port = base64.decodebytes(ingress_port_base64)  # retrieving ingress_port; not used, yet
 
-    src_addr = socket.inet_ntoa(base64.decodebytes(src_address_base64))  # converting to IP
-    dst_addr = socket.inet_ntoa(base64.decodebytes(dst_address_base64))
+    # Decoding Payload
+    packet = _scapy_parse(packet)
 
-    return src_addr, dst_addr
+    return packet[IP].src, packet[IP].dst
 
 
 def _hash(data):
