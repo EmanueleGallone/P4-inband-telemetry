@@ -8,7 +8,6 @@ Implementing a reactive Controller, using P4Runtime-Shell and PacketIO.
 import base64
 import hashlib
 import os
-import socket
 import argparse
 
 import p4runtime_sh.shell as sh
@@ -17,6 +16,7 @@ from google.protobuf.json_format import MessageToDict
 from p4.v1.p4runtime_pb2 import StreamMessageResponse
 from scapy.layers.inet import IP
 from scapy.layers.l2 import Ether
+from scapy.packet import Packet
 
 METADATA_ID_TO_HEADER = {  # as a reminder
     1: 'ingress_port',
@@ -40,7 +40,7 @@ DB_IP_MAC = {
 # TODO use packet_out to deliver also the first packet
 
 
-def _scapy_parse(packet: dict):
+def _scapy_parse(packet: dict) -> Packet:
     """
     Trying to decode the packet payload sent by the data plane.
     """
@@ -76,7 +76,7 @@ def _parse_packet_metadata(packet: StreamMessageResponse) -> tuple:
     return packet[IP].src, packet[IP].dst
 
 
-def _hash(data):
+def _hash(data) -> str:
     try:
         data = str(data).encode()
     except Exception as e:  # FIXME
@@ -115,7 +115,7 @@ class Controller(object):
         except Exception as e:  # FIXME find the right exception
             raise e
 
-    def _handle_packet_in(self, packet: StreamMessageResponse):
+    def _handle_packet_in(self, packet: StreamMessageResponse) -> None:
         if packet is None:
             return
 
@@ -143,12 +143,12 @@ class Controller(object):
         if te_hash in self.ipv4_table_entries:  # avoiding duplicated ipv4 forwarding rules
             return True
 
-    def _insert_ipv4_entry(self, table_entry: TableEntry):
+    def _insert_ipv4_entry(self, table_entry: TableEntry) -> None:
         te_hash = _hash(table_entry)
         self.ipv4_table_entries[te_hash] = table_entry
         table_entry.insert()
 
-    def insert_ipv4_entry(self, mac_addr: str, ip_address: str, port: int):
+    def insert_ipv4_entry(self, mac_addr: str, ip_address: str, port: int) -> None:
         te = TableEntry(self.ipv4_table)(action=self.ipv4_forward_action)
         te.match["hdr.ipv4.dstAddr"] = ip_address
         te.action["dstAddr"] = mac_addr
@@ -158,7 +158,7 @@ class Controller(object):
             print("Inserting rule: \n\tdst_addr:{}, port:{}".format(ip_address, port))
             self._insert_ipv4_entry(te)
 
-    def sniff(self, timeout=None):
+    def sniff(self, timeout=None) -> None:
         """
         Applying the built-in handler defined within the controller
         """
