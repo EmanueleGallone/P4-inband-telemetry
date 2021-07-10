@@ -82,8 +82,6 @@ class Controller(object):
         self.ipv4_forward_action = "MyIngress.ipv4_forward"
         self.ipv4_table_entries = dict()
 
-        self.pretty_ip_table = []
-
         self._connect_shell()
 
     def _connect_shell(self):
