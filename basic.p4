@@ -175,17 +175,6 @@ control MyVerifyChecksum(inout headers_t hdr, inout metadata meta) {
 **************  I N G R E S S   P R O C E S S I N G   *******************
 *************************************************************************/
 
-control packetio_ingress(inout headers_t hdr,
-                         inout standard_metadata_t standard_metadata) {
-    apply {
-        if (standard_metadata.ingress_port == CONTROLLER_PORT) {
-            standard_metadata.egress_spec = (egress_port_v)hdr.packet_out.egress_port;
-            hdr.packet_out.setInvalid();
-            exit; // no need to further execute the pipeline
-        }
-    }
-}
-
 control MyIngress(inout headers_t hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
@@ -227,23 +216,6 @@ control MyIngress(inout headers_t hdr,
             standard_metadata.ingress_port : exact;
             standard_metadata.egress_spec : exact;
             standard_metadata.egress_port : exact;
-            /*
-            standard_metadata.clone_spec : exact;
-            standard_metadata.instance_type : exact;
-            standard_metadata.packet_length : exact;
-            standard_metadata.enq_timestamp : exact;
-            standard_metadata.enq_qdepth : exact;
-            standard_metadata.deq_timedelta : exact;
-            standard_metadata.deq_qdepth : exact;
-            standard_metadata.ingress_global_timestamp : exact;
-            standard_metadata.egress_global_timestamp : exact;
-            standard_metadata.lf_field_list : exact;
-            standard_metadata.mcast_grp : exact;
-            standard_metadata.resubmit_flag : exact;
-            standard_metadata.egress_rid : exact;
-            standard_metadata.checksum_error : exact;
-            standard_metadata.recirculate_flag : exact;
-            */
             hdr.ipv4.srcAddr : exact;
             hdr.ipv4.dstAddr : exact;
             hdr.packet_in.src_address : exact;
@@ -255,6 +227,12 @@ control MyIngress(inout headers_t hdr,
 
     
     apply {
+        if (standard_metadata.ingress_port == CONTROLLER_PORT) {
+            standard_metadata.egress_spec = (egress_port_v)hdr.packet_out.egress_port;
+            hdr.packet_out.setInvalid();
+            exit; // no need to further execute the pipeline
+        }
+
         if (hdr.ipv4.isValid()) {
             dbg_table.apply();
             if (ipv4_lpm.apply().hit) {
@@ -313,23 +291,6 @@ control MyEgress(inout headers_t hdr,
             standard_metadata.ingress_port : exact;
             standard_metadata.egress_spec : exact;
             standard_metadata.egress_port : exact;
-            /*
-            standard_metadata.clone_spec : exact;
-            standard_metadata.instance_type : exact;
-            standard_metadata.packet_length : exact;
-            standard_metadata.enq_timestamp : exact;
-            standard_metadata.enq_qdepth : exact;
-            standard_metadata.deq_timedelta : exact;
-            standard_metadata.deq_qdepth : exact;
-            standard_metadata.ingress_global_timestamp : exact;
-            standard_metadata.egress_global_timestamp : exact;
-            standard_metadata.lf_field_list : exact;
-            standard_metadata.mcast_grp : exact;
-            standard_metadata.resubmit_flag : exact;
-            standard_metadata.egress_rid : exact;
-            standard_metadata.checksum_error : exact;
-            standard_metadata.recirculate_flag : exact;
-            */
             hdr.ipv4.srcAddr : exact;
             hdr.ipv4.dstAddr : exact;
             hdr.packet_in.src_address : exact;

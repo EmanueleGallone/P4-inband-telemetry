@@ -35,5 +35,23 @@ these instances:
 make stop
 ```
 
+## Extras
+Use the controller to populate the ipv4 table in _Switch 1_.
+* Delete the entries in _s1-runtime.json_
+* On terminal 1 run:
+```
+python3 controller
+```
+* On terminal 2 run:
+```
+python3 controller
+```
+
+* On terminal 1 try
+```
+h1 ping h3
+```
+
+Ping should work after 2-3 packets are sent.
 ## References
 Partially forked from [github.com/leandrocalmeida](https://github.com/leandrocalmeida/P4)
