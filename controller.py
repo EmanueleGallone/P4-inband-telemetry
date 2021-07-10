@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Implementing a reactive Controller, using P4Runtime-Shell and PacketIO
+Implementing a reactive Controller, using P4Runtime-Shell and PacketIO.
 [WORK-IN-PROGRESS]
 """
 
@@ -62,10 +62,10 @@ def _parse_packet_metadata(packet: StreamMessageResponse) -> tuple:
 def _hash(data):
     try:
         data = str(data).encode()
-    except Exception as e:
-        raise e
+    except Exception as e:  # FIXME
+        print(e)
 
-    return hashlib.sha256(data).hexdigest()
+    return hashlib.sha512(data).hexdigest()
 
 
 class Controller(object):
@@ -95,7 +95,7 @@ class Controller(object):
                 election_id=self.election_id,
                 config=self.shell.FwdPipeConfig(self.p4info, self.p4json)
             )
-        except Exception as e:  # TODO find the right exception
+        except Exception as e:  # FIXME find the right exception
             raise e
 
     def _handle_packet_in(self, packet: StreamMessageResponse):
@@ -119,11 +119,10 @@ class Controller(object):
         Since the P4runtime overwrites entries already present inside the switch, I have
         to keep a record on all the previous matches and be sure to not add duplicated rules.
         Moreover, a simple comparison with table_entries does not work (I have yet to try to use str representation)
-        I'll use hashing.
+        so I'll use hashing.
         """
         te_hash = _hash(table_entry)
 
-        # TODO use self.ipv4_table_entries to check if ip_address is already in
         if te_hash in self.ipv4_table_entries:  # avoiding duplicating ipv4 forwarding rules
             return True
 
@@ -133,7 +132,7 @@ class Controller(object):
         table_entry.insert()
 
     def insert_ipv4_entry(self, mac_addr: str, ip_address: str, port: int):
-        te = self.shell.TableEntry(self.ipv4_table)(action=self.ipv4_forward_action)
+        te = TableEntry(self.ipv4_table)(action=self.ipv4_forward_action)
         te.match["hdr.ipv4.dstAddr"] = ip_address
         te.action["dstAddr"] = mac_addr
         te.action["port"] = str(port)
