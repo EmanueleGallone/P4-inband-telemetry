@@ -48,9 +48,11 @@ def _parse_packet_metadata(packet: StreamMessageResponse) -> tuple:
         return ()
 
     packet = MessageToDict(packet)
+    print(packet)
 
     src_address_base64 = packet['packet']['metadata'][0]['value'].encode()
     dst_address_base64 = packet['packet']['metadata'][1]['value'].encode()
+    # payload_base64 = packet['packet']['payload'].encode()
     # ingress_port = packet['packet']['metadata'][2]['value']  # retrieving ingress_port; not used, yet
 
     src_addr = socket.inet_ntoa(base64.decodebytes(src_address_base64))  # converting to IP
@@ -123,7 +125,7 @@ class Controller(object):
         """
         te_hash = _hash(table_entry)
 
-        if te_hash in self.ipv4_table_entries:  # avoiding duplicating ipv4 forwarding rules
+        if te_hash in self.ipv4_table_entries:  # avoiding duplicated ipv4 forwarding rules
             return True
 
     def _insert_ipv4_entry(self, table_entry: TableEntry):
