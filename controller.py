@@ -144,7 +144,7 @@ class Controller(object):
         if packet is None:
             return
 
-        scapy_packet = _parse_packet(packet)
+        scapy_packet = _parse_packet(packet)  # TODO check if parsed_packet is None
 
         src_addr, dst_addr = scapy_packet[IP].src, scapy_packet[IP].dst
 
@@ -164,7 +164,7 @@ class Controller(object):
     def _is_duplicated_rule(self, table_entry: TableEntry) -> bool:
         """
         Since the P4runtime overwrites entries already present inside the switch, I have
-        to keep a record on all the previous matches and be sure to not add duplicated rules.
+        to keep a record on all the previous entries and be sure to not add duplicated rules.
         Moreover, a simple comparison with table_entries does not work (I have yet to try to use str representation)
         so I'll use hashing.
         """
@@ -178,13 +178,12 @@ class Controller(object):
         This method will send a Packet-out back to the data-plane.
         """
         try:
-
             p = self.shell.PacketOut(bytes(packet), egress_port=str(port))
             p.send()
             logging.debug("Sending packet out: port {}".format(port))
+
         except UserError as e:
             logging.debug(e)
-
         return
 
     def _insert_ipv4_entry(self, table_entry: TableEntry) -> None:
@@ -252,5 +251,5 @@ if __name__ == '__main__':
         print("Starting Controller: connecting to {}".format(args.grpc_addr))
         controller.start(timeout=None)
     except KeyboardInterrupt:
-        print("CTRL-C Detected: Exiting")
+        print("\nCTRL-C Detected: Exiting")
         sys.exit(0)
