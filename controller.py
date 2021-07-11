@@ -20,6 +20,7 @@ from p4runtime_sh.utils import UserError
 from scapy.layers.inet import IP
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet
+from utils.db_manager import DBManager
 
 FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT, filename='logs/controller.log')
@@ -105,6 +106,8 @@ class Controller(object):
         self.ipv4_table = "MyIngress.ipv4_lpm"
         self.ipv4_forward_action = "MyIngress.ipv4_forward"
         self.ipv4_table_entries = dict()
+
+        self.db_manager = DBManager()
 
         self._connect_shell()
 
