@@ -14,23 +14,23 @@ const bit<8> IP_PROTO = 253;
 *************************************************************************/
 
 
-typedef bit<48> macAddr_v;
-typedef bit<32> ip4Addr_v;
+typedef bit<48> macAddr_t;
+typedef bit<32> ipv4Addr_t;
 
-typedef bit<31>  switchID_v;
-typedef bit<9>   ingress_port_v;
-typedef bit<9>   egress_port_v;
-typedef bit<9>   egressSpec_v;
-typedef bit<48>  ingress_global_timestamp_v;
-typedef bit<48>  egress_global_timestamp_v;
-typedef bit<32>  enq_timestamp_v;
-typedef bit<19>  enq_qdepth_v;
-typedef bit<32>  deq_timedelta_v;
-typedef bit<19>  deq_qdepth_v;
+typedef bit<31>  switchID_t;
+typedef bit<9>   ingress_port_t;
+typedef bit<9>   egress_port_t;
+typedef bit<9>   egressSpec_t;
+typedef bit<48>  ingress_global_timestamp_t;
+typedef bit<48>  egress_global_timestamp_t;
+typedef bit<32>  enq_timestamp_t;
+typedef bit<19>  enq_qdepth_t;
+typedef bit<32>  deq_timedelta_t;
+typedef bit<19>  deq_qdepth_t;
 
 header ethernet_h {
-    macAddr_v dstAddr;
-    macAddr_v srcAddr;
+    macAddr_t dstAddr;
+    macAddr_t srcAddr;
     bit<16>   etherType;
 }
 
@@ -45,19 +45,19 @@ header ipv4_h {
     bit<8>    ttl;
     bit<8>    protocol;
     bit<16>   hdrChecksum;
-    ip4Addr_v srcAddr;
-    ip4Addr_v dstAddr;
+    ipv4Addr_t srcAddr;
+    ipv4Addr_t dstAddr;
 }
 
 @controller_header("packet_out")
 header packet_out_header_t {
-    egress_port_v egress_port;
+    egress_port_t egress_port;
     bit<7> _pad;
 }
 
 @controller_header("packet_in")
 header packet_in_header_t {
-    ingress_port_v ingress_port;
+    ingress_port_t ingress_port;
     bit<7> _pad;
 }
 
@@ -66,16 +66,16 @@ header nodeCount_h{
 }
 
 header InBandNetworkTelemetry_h {
-    switchID_v swid;
-    ingress_port_v ingress_port;
-    egress_port_v egress_port;
-    egressSpec_v egress_spec;
-    ingress_global_timestamp_v ingress_global_timestamp;
-    egress_global_timestamp_v egress_global_timestamp;
-    enq_timestamp_v enq_timestamp;
-    enq_qdepth_v enq_qdepth;
-    deq_timedelta_v deq_timedelta;
-    deq_qdepth_v deq_qdepth;
+    switchID_t swid;
+    ingress_port_t ingress_port;
+    egress_port_t egress_port;
+    egressSpec_t egress_spec;
+    ingress_global_timestamp_t ingress_global_timestamp;
+    egress_global_timestamp_t egress_global_timestamp;
+    enq_timestamp_t enq_timestamp;
+    enq_qdepth_t enq_qdepth;
+    deq_timedelta_t deq_timedelta;
+    deq_qdepth_t deq_qdepth;
 }
 
 struct ingress_metadata_t {
@@ -184,12 +184,12 @@ control MyIngress(inout headers_t hdr,
     	standard_metadata.egress_spec = CONTROLLER_PORT;
     }
 
-    action ethernet_forward(macAddr_v dstAddr) {
+    action ethernet_forward(macAddr_t dstAddr) {
         hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
         hdr.ethernet.dstAddr = dstAddr;
     }
     
-    action ipv4_forward(macAddr_v dstAddr, egressSpec_v port) {
+    action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
         ethernet_forward(dstAddr);
 
@@ -224,7 +224,7 @@ control MyIngress(inout headers_t hdr,
     
     apply {
         if (standard_metadata.ingress_port == CONTROLLER_PORT) {
-            standard_metadata.egress_spec = (egress_port_v)hdr.packet_out.egress_port;
+            standard_metadata.egress_spec = (egress_port_t)hdr.packet_out.egress_port;
             hdr.packet_out.setInvalid();
             exit; // no need to further execute the pipeline
         }
@@ -249,20 +249,20 @@ control MyEgress(inout headers_t hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
 
-    action add_swtrace(switchID_v swid) { 
+    action add_swtrace(switchID_t swid) {
         hdr.nodeCount.count = hdr.nodeCount.count + 1;
         hdr.INT.push_front(1);
         hdr.INT[0].setValid();
         hdr.INT[0].swid = swid;
-        hdr.INT[0].ingress_port = (ingress_port_v)standard_metadata.ingress_port;
-        hdr.INT[0].ingress_global_timestamp = (ingress_global_timestamp_v)standard_metadata.ingress_global_timestamp;
-        hdr.INT[0].egress_port = (egress_port_v)standard_metadata.egress_port;
-        hdr.INT[0].egress_spec = (egressSpec_v)standard_metadata.egress_spec;
-        hdr.INT[0].egress_global_timestamp = (egress_global_timestamp_v)standard_metadata.egress_global_timestamp;
-        hdr.INT[0].enq_timestamp = (enq_timestamp_v)standard_metadata.enq_timestamp;
-        hdr.INT[0].enq_qdepth = (enq_qdepth_v)standard_metadata.enq_qdepth;
-        hdr.INT[0].deq_timedelta = (deq_timedelta_v)standard_metadata.deq_timedelta;
-        hdr.INT[0].deq_qdepth = (deq_qdepth_v)standard_metadata.deq_qdepth;
+        hdr.INT[0].ingress_port = (ingress_port_t)standard_metadata.ingress_port;
+        hdr.INT[0].ingress_global_timestamp = (ingress_global_timestamp_t)standard_metadata.ingress_global_timestamp;
+        hdr.INT[0].egress_port = (egress_port_t)standard_metadata.egress_port;
+        hdr.INT[0].egress_spec = (egressSpec_t)standard_metadata.egress_spec;
+        hdr.INT[0].egress_global_timestamp = (egress_global_timestamp_t)standard_metadata.egress_global_timestamp;
+        hdr.INT[0].enq_timestamp = (enq_timestamp_t)standard_metadata.enq_timestamp;
+        hdr.INT[0].enq_qdepth = (enq_qdepth_t)standard_metadata.enq_qdepth;
+        hdr.INT[0].deq_timedelta = (deq_timedelta_t)standard_metadata.deq_timedelta;
+        hdr.INT[0].deq_qdepth = (deq_qdepth_t)standard_metadata.deq_qdepth;
         
         hdr.ipv4.totalLen = hdr.ipv4.totalLen + 32;
     }

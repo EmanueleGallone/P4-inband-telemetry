@@ -32,8 +32,6 @@ from mininet.cli import CLI
 from p4runtime_switch import P4RuntimeSwitch
 import p4runtime_lib.simple_controller
 
-import switch_register_editor as config_tool
-
 
 def configureP4Switch(**switch_args):
     """ Helper class that is called by mininet to initialize

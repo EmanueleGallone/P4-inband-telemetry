@@ -22,6 +22,7 @@ class DBManager(object):
     """
     Using In-memory database.
     """
+
     def __init__(self, db_path=':memory:'):
         self.db_path = db_path
         self.cursor = None
@@ -39,16 +40,22 @@ class DBManager(object):
         self.cursor.execute("drop table if exists IPV4")
 
         sql = "CREATE TABLE IPV4" \
-              "(ID INTEGER PRIMARY KEY AUTOINCREMENT, SwitchID VARCHAR(20), HostIP varchar(16), Port INTEGER, " \
-              "MacAddress VARCHAR(17)) "
+              " (ID INTEGER PRIMARY KEY AUTOINCREMENT," \
+              " SwitchID VARCHAR(20) NOT NULL," \
+              " HostIP varchar(16) NOT NULL," \
+              " Port INTEGER NOT NULL, " \
+              " MacAddress VARCHAR(17) NOT NULL" \
+              ")"
 
         self.cursor.execute(sql)
         self._populate_db()
 
     def _populate_db(self):
         sql = "INSERT INTO IPV4(SwitchID, HostIP, Port, MacAddress) VALUES (?,?,?,?)"
+
         data_tuple = [(1, '10.0.1.1', 1, "08:00:00:00:01:11"), (1, '10.0.2.2', 2, "08:00:00:00:02:22"),
                       (1, '10.0.3.3', 3, "08:00:00:00:03:00"), (1, '10.0.4.4', 4, "08:00:00:00:04:00")]
+
         self.cursor.executemany(sql, data_tuple)
 
     def insert(self, swid: int, ip: str, port: int, mac_addr: str):
