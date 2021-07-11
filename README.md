@@ -52,6 +52,6 @@ python3 controller
 h1 ping h3
 ```
 
-Ping should work after 2-3 packets are sent.
+Ping should work after 1-2 packets are sent.
 ## References
 Partially forked from [github.com/leandrocalmeida](https://github.com/leandrocalmeida/P4)
