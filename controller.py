@@ -59,8 +59,6 @@ DB_IP_MAC = {
     "10.0.4.4": "08:00:00:00:04:00"
 }
 
-# TODO use packet_out to deliver also the first packet
-
 
 def _scapy_parse(packet: dict) -> Packet:
     """
@@ -100,12 +98,14 @@ def _parse_packet(packet: StreamMessageResponse) -> Packet:
 
 
 def _hash(data) -> str:
+    _result = None
     try:
-        data = str(data).encode()
+        _data = str(data).encode()
+        _result = hashlib.sha512(_data).hexdigest()
     except Exception as e:  # FIXME
         logging.debug(e)
 
-    return hashlib.sha512(data).hexdigest()
+    return _result
 
 
 class Controller(object):
@@ -180,7 +180,7 @@ class Controller(object):
         try:
             p = self.shell.PacketOut(bytes(packet), egress_port=str(port))
             p.send()
-            logging.debug("Sending packet out: port {}".format(port))
+            logging.debug("Sending packet out: egress_port {}".format(port))
 
         except UserError as e:
             logging.debug(e)
@@ -198,7 +198,7 @@ class Controller(object):
         te.action["port"] = str(port)
 
         if not self._is_duplicated_rule(te):
-            logging.info("Inserting rule: \n\tdst_addr:{}, port:{}".format(ip_address, port))
+            logging.info("Inserting rule: dst_addr:{}, port:{}".format(ip_address, port))
             self._insert_ipv4_entry(te)
 
     def start(self, timeout=None) -> None:
