@@ -40,7 +40,7 @@ Use the controller to populate the ipv4 table in _Switch 1_.
 * Delete the entries in _s1-runtime.json_
 * On terminal 1 run:
 ```
-python3 controller
+make run
 ```
 * On terminal 2 run:
 ```
