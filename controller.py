@@ -98,7 +98,7 @@ def _parse_packet(packet: StreamMessageResponse) -> Packet:
 
 
 def _hash(data) -> str:
-    _result = None
+    _result = ""
     try:
         _data = str(data).encode()
         _result = hashlib.sha512(_data).hexdigest()
