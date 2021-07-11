@@ -9,14 +9,20 @@ import base64
 import hashlib
 import os
 import argparse
+import logging
+import sys
 
 import p4runtime_sh.shell as sh
 from p4runtime_sh.shell import TableEntry
 from google.protobuf.json_format import MessageToDict
 from p4.v1.p4runtime_pb2 import StreamMessageResponse
+from p4runtime_sh.utils import UserError
 from scapy.layers.inet import IP
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet
+
+FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
+logging.basicConfig(level=logging.DEBUG, format=FORMAT, filename='logs/controller.log')
 
 METADATA_ID_TO_HEADER = {  # as a reminder
     1: 'ingress_port',
@@ -55,15 +61,16 @@ def _scapy_parse(packet: dict) -> Packet:
 
         return None  # actually not interested in packet not having IP layer
     except Exception as e:  # FIXME
-        print(e)
+        logging.debug(e)
 
 
-def _parse_packet_metadata(packet: StreamMessageResponse) -> tuple:
+def _parse_packet(packet: StreamMessageResponse) -> Packet:
     """
-    This function retrieves the data from the packet_in header defined in P4
+    This function retrieves the data from the packet_in header defined in P4 and its payload.
     """
     if packet is None:
-        return ()
+        raise TypeError("Packet cannot be None!")
+
     packet = MessageToDict(packet)
 
     # Decoding Header
@@ -73,14 +80,14 @@ def _parse_packet_metadata(packet: StreamMessageResponse) -> tuple:
     # Decoding Payload
     packet = _scapy_parse(packet)
 
-    return packet[IP].src, packet[IP].dst
+    return packet
 
 
 def _hash(data) -> str:
     try:
         data = str(data).encode()
     except Exception as e:  # FIXME
-        print(e)
+        logging.debug(e)
 
     return hashlib.sha512(data).hexdigest()
 
@@ -105,7 +112,7 @@ class Controller(object):
         self.election_id = (self.election_id[0], self.election_id[1] + 1)
 
         try:
-            print("Connecting to {}".format(self.p4rt_server))
+            logging.debug("Connecting to {}".format(self.p4rt_server))
             self.shell.setup(
                 device_id=self.device_id,
                 grpc_addr=self.p4rt_server,
@@ -119,13 +126,18 @@ class Controller(object):
         if packet is None:
             return
 
-        src_addr, dst_addr = _parse_packet_metadata(packet)
+        scapy_packet = _parse_packet(packet)
+
+        src_addr, dst_addr = scapy_packet[IP].src, scapy_packet[IP].dst
 
         mac_address = DB_IP_MAC[dst_addr]
         port = DB_IP_PORT[dst_addr]
 
         if self._check_db():
             self.insert_ipv4_entry(mac_address, dst_addr, port)
+
+            # done inserting new entry, now send the packet_out
+            self._send_packet_out(scapy_packet, port)
 
     def _check_db(self) -> bool:
         # FIXME implement the check function
@@ -143,6 +155,20 @@ class Controller(object):
         if te_hash in self.ipv4_table_entries:  # avoiding duplicated ipv4 forwarding rules
             return True
 
+    def _send_packet_out(self, packet: Packet, port) -> None:
+        """
+        This method will send a Packet-out back to the data-plane.
+        """
+        try:
+
+            p = self.shell.PacketOut(bytes(packet), egress_port=str(port))
+            p.send()
+            logging.debug("Sending packet out: port {}".format(port))
+        except UserError as e:
+            logging.debug(e)
+
+        return
+
     def _insert_ipv4_entry(self, table_entry: TableEntry) -> None:
         te_hash = _hash(table_entry)
         self.ipv4_table_entries[te_hash] = table_entry
@@ -155,16 +181,16 @@ class Controller(object):
         te.action["port"] = str(port)
 
         if not self._is_duplicated_rule(te):
-            print("Inserting rule: \n\tdst_addr:{}, port:{}".format(ip_address, port))
+            logging.info("Inserting rule: \n\tdst_addr:{}, port:{}".format(ip_address, port))
             self._insert_ipv4_entry(te)
 
-    def sniff(self, timeout=None) -> None:
+    def start(self, timeout=None) -> None:
         """
         Applying the built-in handler defined within the controller
         """
-        self.sniff2(lambda p: self._handle_packet_in(p), timeout=None)
+        self.sniff(lambda p: self._handle_packet_in(p), timeout=None)
 
-    def sniff2(self, func=None, timeout=None):
+    def sniff(self, func=None, timeout=None):
         """
         func is the handler to be used when a new packet_in is detected
         if func is not provided, the method returns the packet_in
@@ -204,4 +230,9 @@ if __name__ == '__main__':
 
     controller = Controller(args.grpc_addr, args.device_id, args.p4info, args.bmv2_json)
 
-    controller.sniff(timeout=None)
+    try:
+        print("Starting Controller: connecting to {}".format(args.grpc_addr))
+        controller.start(timeout=None)
+    except KeyboardInterrupt:
+        print("CTRL-C Detected: Exiting")
+        sys.exit(0)

@@ -51,7 +51,7 @@ header ipv4_h {
 
 @controller_header("packet_out")
 header packet_out_header_t {
-    bit<9> egress_port;
+    egress_port_v egress_port;
     bit<7> _pad;
 }
 
