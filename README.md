@@ -54,5 +54,5 @@ h1 ping h3
 
 Ping should work after 1-2 packets are sent.
 ## References
-* INT headers forked from [github.com/leandrocalmeida](https://github.com/leandrocalmeida/P4)
+* INT P4 headers, receive and send python scripts partially forked from [github.com/leandrocalmeida](https://github.com/leandrocalmeida/P4)
 * P4 [p4lang/tutorials](https://github.com/p4lang/tutorials)
