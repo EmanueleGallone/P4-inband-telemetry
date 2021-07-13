@@ -4,12 +4,6 @@ from utils.InBandNetworkTelemetry import *
 import prometheus_exporter
 
 
-class nodeCount(Packet):
-    name = "nodeCount"
-    fields_desc = [ShortField("count", 0),
-                   PacketListField("INT", [], InBandNetworkTelemetry, count_from=lambda pkt: (pkt.count * 1))]
-
-
 def handle_pkt(pkt):
     count = 0
     fields = {}
@@ -30,9 +24,10 @@ def handle_pkt(pkt):
 
         prometheus_exporter.process_INT(fields)
 
-    print(pkt[nodeCount].getfield())
-    string = pkt[nodeCount].show(dump=True)
-    print("packet: \n %s \n %s".format(string, ))
+    pkt.show()
+    # print(pkt[nodeCount].getfield())
+    # string = pkt[nodeCount].show(dump=True)
+    # print("packet: \n %s \n %s".format(string, ))
 
 
 def main():

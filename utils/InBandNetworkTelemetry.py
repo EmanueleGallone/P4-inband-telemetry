@@ -23,3 +23,9 @@ class InBandNetworkTelemetry(Packet):
 
     def extract_padding(self, p):
         return "", p
+
+
+class nodeCount(Packet):
+    name = "nodeCount"
+    fields_desc = [ShortField("count", 0),
+                   PacketListField("INT", [], InBandNetworkTelemetry, count_from=lambda pkt: (pkt.count * 1))]
