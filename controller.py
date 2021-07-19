@@ -40,24 +40,24 @@ from utils.db_manager import DBManager
 FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT, filename='logs/controller.log')
 
-METADATA_ID_TO_HEADER = {  # as a reminder
-    1: 'ingress_port',
-    2: '_pad'
-}
-
-# TODO use a db
-DB_IP_PORT = {
-    "10.0.1.1": 1,
-    "10.0.2.2": 2,
-    "10.0.3.3": 3,
-    "10.0.4.4": 4
-}
-DB_IP_MAC = {
-    "10.0.1.1": "08:00:00:00:01:11",
-    "10.0.2.2": "08:00:00:00:02:22",
-    "10.0.3.3": "08:00:00:00:03:00",
-    "10.0.4.4": "08:00:00:00:04:00"
-}
+# As a reminder:
+# METADATA_ID_TO_HEADER = {
+#     1: 'ingress_port',
+#     2: '_pad'
+# }
+#
+# DB_IP_PORT = {
+#     "10.0.1.1": 1,
+#     "10.0.2.2": 2,
+#     "10.0.3.3": 3,
+#     "10.0.4.4": 4
+# }
+# DB_IP_MAC = {
+#     "10.0.1.1": "08:00:00:00:01:11",
+#     "10.0.2.2": "08:00:00:00:02:22",
+#     "10.0.3.3": "08:00:00:00:03:00",
+#     "10.0.4.4": "08:00:00:00:04:00"
+# }
 
 
 def _scapy_parse(packet: dict) -> Packet:
@@ -122,7 +122,11 @@ class Controller(object):
         self.ipv4_forward_action = "MyIngress.ipv4_forward"
         self.ipv4_table_entries = dict()
 
-        self.db_manager = DBManager()
+        self.local_breakout_table = "MyIngress.ipv4_local_breakout"
+        self.local_breakout_action = "MyIngress.local_breakout"
+        #self.local_breakout_entries = dict()
+
+        self.db_manager = DBManager('test.db')
 
         self._connect_shell()
 
@@ -148,11 +152,15 @@ class Controller(object):
 
         src_addr, dst_addr = scapy_packet[IP].src, scapy_packet[IP].dst
 
-        mac_address = DB_IP_MAC[dst_addr]
-        port = DB_IP_PORT[dst_addr]
+        mac_address = self.db_manager.get_mac_from_ip(dst_addr)
+        port = self.db_manager.get_port_from_ip(dst_addr)
+
+        breakout_dst_addr = self.db_manager.get_breakout_address(src_addr, dst_addr)
 
         if self._check_db():
             self.insert_ipv4_entry(mac_address, dst_addr, port)
+
+            self.insert_ipv4_local_breakout_entry(src_addr, dst_addr, breakout_dst_addr)
 
             # done inserting new entry, now send the packet_out
             self._send_packet_out(scapy_packet, port)
@@ -169,7 +177,6 @@ class Controller(object):
         so I'll use hashing.
         """
         te_hash = _hash(table_entry)
-
         if te_hash in self.ipv4_table_entries:  # avoiding duplicated ipv4 forwarding rules
             return True
 
@@ -181,7 +188,6 @@ class Controller(object):
             p = self.shell.PacketOut(bytes(packet), egress_port=str(port))
             p.send()
             logging.debug("Sending packet out: egress_port {}".format(port))
-
         except UserError as e:
             logging.debug(e)
         return
@@ -198,8 +204,23 @@ class Controller(object):
         te.action["port"] = str(port)
 
         if not self._is_duplicated_rule(te):
-            logging.info("Inserting rule: dst_addr:{}, port:{}".format(ip_address, port))
+            logging.info("Inserting IPV4 forwarding rule: dst_addr:{}, port:{}".format(ip_address, port))
             self._insert_ipv4_entry(te)
+
+    def insert_ipv4_local_breakout_entry(self, src_ip_address: str, dst_ip_address: str, breakout_ip_address: str):
+        te = TableEntry(self.local_breakout_table)(action=self.local_breakout_action)
+        te.match["hdr.ipv4.srcAddr"] = src_ip_address
+        te.match["hdr.ipv4.dstAddr"] = dst_ip_address
+        te.action["dstAddr"] = breakout_ip_address
+
+        if not self._is_duplicated_rule(te):
+            logging.info("Inserting IPV4 Breakout rule: original_dst_addr:{}, breakout_dst_addr:{}".format(dst_ip_address, breakout_ip_address))
+            self._insert_ipv4_local_breakout_entry(te)
+
+    def _insert_ipv4_local_breakout_entry(self, table_entry: TableEntry):
+        te_hash = _hash(table_entry)
+        self.ipv4_table_entries[te_hash] = table_entry
+        table_entry.insert()
 
     def start(self, timeout=None) -> None:
         """
