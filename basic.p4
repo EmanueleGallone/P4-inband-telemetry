@@ -158,7 +158,7 @@ parser MyParser(packet_in packet,
             0 :      accept;
             default: parse_int;
         }
-    } 
+    }
 }   
 /*************************************************************************
 ************   C H E C K S U M    V E R I F I C A T I O N   *************
@@ -188,6 +188,11 @@ control MyIngress(inout headers_t hdr,
         hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
         hdr.ethernet.dstAddr = dstAddr;
     }
+
+    action local_breakout(ipv4Addr_t dstAddr){
+        // TODO is this the best way to perform a local breakout?
+        hdr.ipv4.dstAddr = dstAddr;
+    }
     
     action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
@@ -207,6 +212,21 @@ control MyIngress(inout headers_t hdr,
         }
         size = 1024;
         default_action = NoAction();
+    }
+
+    table ipv4_local_breakout {
+        key = {
+            hdr.ipv4.srcAddr: exact;
+            hdr.ipv4.dstAddr: exact;
+        }
+        actions = {
+            local_breakout;
+            drop;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+
     }
 
      table dbg_table {
@@ -231,14 +251,17 @@ control MyIngress(inout headers_t hdr,
 
         if (hdr.ipv4.isValid()) {
             dbg_table.apply();
-            if (ipv4_lpm.apply().hit) {
 
+            // check whether should perform local breakout
+            ipv4_local_breakout.apply();
+
+            if (ipv4_lpm.apply().hit) {
             }
             else { // miss
             	send_to_controller();
             }
         }
-    }
+    } // end of apply section
 } //end of MyIngress
 
 /*************************************************************************
