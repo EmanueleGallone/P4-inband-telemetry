@@ -20,12 +20,16 @@ import sqlite3
 
 class DBManager(object):
     """
-    Using In-memory database.
+    Using In-memory database as default.
     """
 
     def __init__(self, db_path=':memory:'):
         self.db_path = db_path
+        self._connection = None
         self.cursor = None
+
+        self.ipv4_table = "IPV4"
+        self.local_breakout_table = "IPV4LocalBreakout"
 
         self._connect()
         self._init_db()
@@ -34,48 +38,101 @@ class DBManager(object):
         self.close_connection()
 
     def _connect(self):
-        self.cursor = sqlite3.connect(self.db_path).cursor()
+        self._connection = sqlite3.connect(self.db_path)
+        self.cursor = self._connection.cursor()
 
     def _init_db(self):
-        self.cursor.execute("drop table if exists IPV4")
+        self.cursor.execute("drop table if exists {}".format(self.ipv4_table))
+        self.cursor.execute("drop table if exists {}".format(self.local_breakout_table))
 
-        sql = "CREATE TABLE IPV4" \
-              " (ID INTEGER PRIMARY KEY AUTOINCREMENT," \
-              " SwitchID VARCHAR(20) NOT NULL," \
-              " HostIP varchar(16) NOT NULL," \
-              " Port INTEGER NOT NULL, " \
-              " MacAddress VARCHAR(17) NOT NULL" \
-              ")"
+        ipv4_sql = "CREATE TABLE {}" \
+                   " (ID INTEGER PRIMARY KEY AUTOINCREMENT," \
+                   " SwitchID VARCHAR(20) NOT NULL," \
+                   " IPV4HostIP VARCHAR(16) NOT NULL," \
+                   " Port INTEGER NOT NULL, " \
+                   " MacAddress VARCHAR(17) NOT NULL" \
+                   ")".format(self.ipv4_table)
 
-        self.cursor.execute(sql)
+        self.cursor.execute(ipv4_sql)
+
+        local_breakout_sql = "CREATE TABLE {}" \
+                             " (ID INTEGER PRIMARY KEY AUTOINCREMENT," \
+                             " IPV4SrcAddress VARCHAR(16) NOT NULL ," \
+                             " IPV4DstAddress VARCHAR(16) ," \
+                             " DstPort INTEGER ," \
+                             " BreakoutIPV4DstAddress VARCHAR(16) NOT NULL," \
+                             " BreakoutPort INTEGER " \
+                             ")".format(self.local_breakout_table)
+
+        self.cursor.execute(local_breakout_sql)
         self._populate_db()
 
+    def _commit(self):
+        self._connection.commit()
+
     def _populate_db(self):
-        sql = "INSERT INTO IPV4(SwitchID, HostIP, Port, MacAddress) VALUES (?,?,?,?)"
+        sql = "INSERT INTO {}(SwitchID, IPV4HostIP, Port, MacAddress) VALUES (?,?,?,?)".format(self.ipv4_table)
 
         data_tuple = [(1, '10.0.1.1', 1, "08:00:00:00:01:11"), (1, '10.0.2.2', 2, "08:00:00:00:02:22"),
                       (1, '10.0.3.3', 3, "08:00:00:00:03:00"), (1, '10.0.4.4', 4, "08:00:00:00:04:00")]
 
         self.cursor.executemany(sql, data_tuple)
+        self._commit()
+
+        sql = "INSERT INTO {}(" \
+              " IPV4SrcAddress," \
+              " IPV4DstAddress," \
+              " DstPort," \
+              " BreakoutIPV4DstAddress," \
+              " BreakoutPort" \
+              ") VALUES (?,?,?,?,?)".format(self.local_breakout_table)
+
+        data_tuple = [('10.0.1.1', "10.0.2.2", None, '10.0.4.4', None)]
+
+        self.cursor.executemany(sql, data_tuple)
+        self._commit()
 
     def insert(self, swid: int, ip: str, port: int, mac_addr: str):
-        sql = "INSERT INTO IPV4 VALUES (?,?,?,?)"
-        data_tuple = [(swid, ip, port, mac_addr)]
-        self.cursor.executemany(sql, data_tuple)
+        raise NotImplementedError
+        # sql = "INSERT INTO IPV4 VALUES (?,?,?,?)"
+        # data_tuple = [(swid, ip, port, mac_addr)]
+        # self.cursor.executemany(sql, data_tuple)
+        # self._commit()
 
     def dump(self) -> list:
-        sql = "SELECT * FROM IPV4"
-        result = self.cursor.execute(sql).fetchall()
+        result = []
+
+        sql = "SELECT * FROM {}".format(self.ipv4_table)
+        result.append(self.cursor.execute(sql).fetchall())
+
+        sql = "SELECT * FROM {}".format(self.local_breakout_table)
+        result.append(self.cursor.execute(sql).fetchall())
+
         return result
 
-    def get_ip(self, ip):
-        pass
+    def get_mac_from_ip(self, ip: str) -> str:
+        sql = "SELECT MacAddress FROM {} WHERE IPV4HostIP=?".format(self.ipv4_table)
+        result = self.cursor.execute(sql, (ip,)).fetchone()
+        return result[0]
+
+    def get_port_from_ip(self, ip: str) -> int:
+        sql = "SELECT Port FROM {} WHERE IPV4HostIP=?".format(self.ipv4_table)
+        result = self.cursor.execute(sql, (ip,)).fetchone()
+        return result[0]
+
+    def get_breakout_address(self, src_ip: str, dst_ip: str) -> str:
+        sql = "SELECT BreakoutIPV4DstAddress FROM {}" \
+              " WHERE IPV4SrcAddress=? " \
+              " AND IPV4DstAddress=?".format(self.local_breakout_table)
+
+        result = self.cursor.execute(sql, (src_ip, dst_ip)).fetchone()
+        return result[0]
 
     def set_ip(self):
         pass
 
     def close_connection(self):
-        self.cursor.close()
+        self._connection.close()
 
 
 if __name__ == '__main__':
