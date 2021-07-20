@@ -157,12 +157,13 @@ class Controller(object):
 
         breakout_dst_addr = self.db_manager.get_breakout_address(src_addr, dst_addr)
 
-        if self._check_db():
-            self.insert_ipv4_entry(mac_address, dst_addr, port)
-
+        if breakout_dst_addr is not None:  # setup breakout
             self.insert_ipv4_local_breakout_entry(src_addr, dst_addr, breakout_dst_addr)
 
-            # done inserting new entry, now send the packet_out
+        if self._check_db():
+            self.insert_ipv4_entry(mac_address, dst_addr, port)  # setup connectivity
+
+            # done inserting new entry, now send the received packet_in as a packet_out
             self._send_packet_out(scapy_packet, port)
 
     def _check_db(self) -> bool:
