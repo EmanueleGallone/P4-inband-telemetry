@@ -110,23 +110,34 @@ class DBManager(object):
 
         return result
 
-    def get_mac_from_ip(self, ip: str) -> str:
+    def get_mac_from_ip(self, ip: str):
         sql = "SELECT MacAddress FROM {} WHERE IPV4HostIP=?".format(self.ipv4_table)
         result = self.cursor.execute(sql, (ip,)).fetchone()
-        return result[0]
 
-    def get_port_from_ip(self, ip: str) -> int:
+        if result is not None:
+            return result[0]
+
+        return None
+
+    def get_port_from_ip(self, ip: str):
         sql = "SELECT Port FROM {} WHERE IPV4HostIP=?".format(self.ipv4_table)
         result = self.cursor.execute(sql, (ip,)).fetchone()
-        return result[0]
 
-    def get_breakout_address(self, src_ip: str, dst_ip: str) -> str:
+        if result is not None:
+            return result[0]
+
+        return None
+
+    def get_breakout_address(self, src_ip: str, dst_ip: str):
         sql = "SELECT BreakoutIPV4DstAddress FROM {}" \
               " WHERE IPV4SrcAddress=? " \
               " AND IPV4DstAddress=?".format(self.local_breakout_table)
 
         result = self.cursor.execute(sql, (src_ip, dst_ip)).fetchone()
-        return result[0]
+        if result is not None:
+            return result[0]
+
+        return None
 
     def set_ip(self):
         pass
