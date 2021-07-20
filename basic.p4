@@ -2,8 +2,16 @@
 #include <core.p4>
 #include <v1model.p4>
 
-const bit<16> TYPE_IPV4 = 0x800;
-const bit<8> IP_PROTO = 253;
+const bit<16> ETHERTYPE_IPV4      =  0x0800;
+const bit<16> ETHERTYPE_IPV6      =  0x86dd;
+
+const bit<8> IP_PROTOCOLS_ICMP         =   1;
+const bit<8> IP_PROTOCOLS_IPV4         =   4;
+const bit<8> IP_PROTOCOLS_TCP          =   6;
+const bit<8> IP_PROTOCOLS_UDP          =  17;
+const bit<8> IP_PROTOCOLS_IPV6         =  41;
+const bit<8> IP_PROTOCOLS_ICMPV6       =  58;
+const bit<8> IP_PROTOCOLS_EXPERIMENTAL = 253;
 
 #define MAX_HOPS 10
 #define CONTROLLER_PORT 255
@@ -49,14 +57,54 @@ header ipv4_h {
     ipv4Addr_t dstAddr;
 }
 
+header ipv6_h {
+    bit<4>   version;
+    bit<8>   trafficClass;
+    bit<20>  flowLabel;
+    bit<16>  payloadLen;
+    bit<8>   nextHdr;
+    bit<8>   hopLimit;
+    bit<128> srcAddr;
+    bit<128> dstAddr;
+}
+
+header icmp_h {
+    bit<8> icmp_type;
+    bit<8> icmp_code;
+    bit<16> checksum;
+    bit<16> identifier;
+    bit<16> sequence_number;
+    bit<64> timestamp;
+}
+
+header tcp_h {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<32> seqNo;
+    bit<32> ackNo;
+    bit<4>  dataOffset;
+    bit<4>  res;
+    bit<8>  flags;
+    bit<16> window;
+    bit<16> checksum;
+    bit<16> urgentPtr;
+}
+
+header udp_h {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<16> len;
+    bit<16> checksum;
+}
+
 @controller_header("packet_out")
-header packet_out_header_t {
+header packet_out_h {
     egress_port_t egress_port;
     bit<7> _pad;
 }
 
 @controller_header("packet_in")
-header packet_in_header_t {
+header packet_in_h {
     ingress_port_t ingress_port;
     bit<7> _pad;
 }
@@ -92,10 +140,14 @@ struct metadata {
 }
 
 struct headers_t {
-    packet_out_header_t                packet_out;
-    packet_in_header_t                 packet_in;
+    packet_out_h                       packet_out;
+    packet_in_h                        packet_in;
     ethernet_h                         ethernet;
     ipv4_h                             ipv4;
+    ipv6_h                             ipv6;
+    icmp_h                             icmp;
+    tcp_h                              tcp;
+    udp_h                              udp;
     nodeCount_h                        nodeCount;
     InBandNetworkTelemetry_h[MAX_HOPS] INT;
 }
@@ -129,17 +181,47 @@ parser MyParser(packet_in packet,
     state parse_ethernet {
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
-            TYPE_IPV4: parse_ipv4;
+            ETHERTYPE_IPV4: parse_ipv4;
+            ETHERTYPE_IPV6: parse_ipv6;
             default:   accept;
         }
     }
 
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
-        transition select(hdr.ipv4.protocol){
-            IP_PROTO: parse_count;
-            default:  accept;
+        transition select(hdr.ipv4.fragOffset, hdr.ipv4.protocol) {
+            (13w0x0, IP_PROTOCOLS_TCP):          parse_icmp;
+            (13w0x0, IP_PROTOCOLS_TCP):          parse_tcp;
+            (13w0x0, IP_PROTOCOLS_UDP):          parse_udp;
+            (13w0x0, IP_PROTOCOLS_EXPERIMENTAL): parse_count;
+            default: accept;
         }
+    }
+
+    state parse_ipv6 {
+        packet.extract(hdr.ipv6);
+        transition select(hdr.ipv6.nextHdr) {
+            //IP_PROTOCOLS_ICMPV6:       parse_icmpv6;
+            IP_PROTOCOLS_TCP:          parse_tcp;
+            IP_PROTOCOLS_UDP:          parse_udp;
+            IP_PROTOCOLS_EXPERIMENTAL: parse_count;
+            default: accept;
+        }
+    }
+
+    state parse_icmp {
+        packet.extract(hdr.icmp);
+        transition accept;
+    }
+
+    state parse_tcp {
+        packet.extract(hdr.tcp);
+        transition accept;
+    }
+
+    state parse_udp {
+        packet.extract(hdr.udp);
+        transition accept;
     }
 
     state parse_count{
@@ -359,6 +441,9 @@ control MyDeparser(packet_out packet, in headers_t hdr) {
         packet.emit(hdr.packet_in);
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
+        packet.emit(hdr.ipv6);
+        packet.emit(hdr.udp);
+        packet.emit(hdr.tcp);
         packet.emit(hdr.nodeCount);
         packet.emit(hdr.INT);                 
     }
