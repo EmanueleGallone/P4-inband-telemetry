@@ -37,7 +37,17 @@ make stop
 
 ## Extras
 Use the controller to populate the ipv4 table in _Switch 1_.
+**Important**: install p4runtime-shell with the latest features (The release in PyPI is older) directly from git using
+```
+pip install git+<P4Runtime-shell Repository>
+```
+
+####Running the controller
 * Delete the entries in _s1-runtime.json_
+
+
+
+
 * On terminal 1 run:
 ```
 make run
