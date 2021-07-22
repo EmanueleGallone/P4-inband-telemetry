@@ -36,7 +36,8 @@ make stop
 ```
 
 ## Extras
-Use the controller to populate the ipv4 table in _Switch 1_.
+Use the controller to populate the ipv4 table in Pod topology _Switch 1_.
+
 **Important**: install p4runtime-shell with the latest features (The release in PyPI is older) directly from git using
 ```
 pip install git+<P4Runtime-shell Repository>

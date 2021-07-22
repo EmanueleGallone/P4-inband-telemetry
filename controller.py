@@ -35,7 +35,8 @@ from p4runtime_sh.utils import UserError
 from scapy.layers.inet import IP
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet
-from utils.db_manager import DBManager
+
+from utils.SQLiteImpl import SQLiteImpl
 
 FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT, filename='logs/controller.log')
@@ -126,7 +127,7 @@ class Controller(object):
         self.local_breakout_action = "MyIngress.local_breakout"
         #self.local_breakout_entries = dict()
 
-        self.db_manager = DBManager('test.db')
+        self.db_manager = SQLiteImpl()
 
         self._connect_shell()
 

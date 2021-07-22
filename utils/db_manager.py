@@ -14,23 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-import sqlite3
-
-
-class DBManager(object):
-    """
-    Using In-memory database as default.
-    """
-
-    def __init__(self, db_path=':memory:'):
-        self.db_path = db_path
-        self._connection = None
-        self.cursor = None
-
-        self.ipv4_table = "IPV4"
-        self.local_breakout_table = "IPV4LocalBreakout"
-
 from abc import ABC, abstractmethod
 
 
