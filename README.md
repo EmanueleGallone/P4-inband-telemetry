@@ -55,7 +55,7 @@ make run
 ```
 * On terminal 2 run:
 ```
-python3 controller
+python3 controller.py
 ```
 
 * On terminal 1 try
