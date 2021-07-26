@@ -36,7 +36,7 @@ from scapy.layers.inet import IP
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet
 
-from utils.SQLiteImpl import SQLiteImpl
+from utils.database.SQLiteImpl import SQLiteImpl
 
 FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT, filename='logs/controller.log')
@@ -121,11 +121,11 @@ class Controller(object):
 
         self.ipv4_table = "MyIngress.ipv4_lpm"
         self.ipv4_forward_action = "MyIngress.ipv4_forward"
-        self.ipv4_table_entries = dict()
 
         self.local_breakout_table = "MyIngress.ipv4_local_breakout"
         self.local_breakout_action = "MyIngress.local_breakout"
-        #self.local_breakout_entries = dict()
+
+        self.table_entries = dict()
 
         self.db_manager = SQLiteImpl()
 
@@ -135,7 +135,7 @@ class Controller(object):
         self.election_id = (self.election_id[0], self.election_id[1] + 1)
 
         try:
-            logging.debug("Connecting to {}".format(self.p4rt_server))
+            logging.info("Connecting to {}".format(self.p4rt_server))
             self.shell.setup(
                 device_id=self.device_id,
                 grpc_addr=self.p4rt_server,
@@ -179,7 +179,7 @@ class Controller(object):
         so I'll use hashing.
         """
         te_hash = _hash(table_entry)
-        if te_hash in self.ipv4_table_entries:  # avoiding duplicated ipv4 forwarding rules
+        if te_hash in self.table_entries:  # avoiding duplicated ipv4 forwarding rules
             return True
 
     def _send_packet_out(self, packet: Packet, port) -> None:
@@ -196,7 +196,7 @@ class Controller(object):
 
     def _insert_ipv4_entry(self, table_entry: TableEntry) -> None:
         te_hash = _hash(table_entry)
-        self.ipv4_table_entries[te_hash] = table_entry
+        self.table_entries[te_hash] = table_entry
         table_entry.insert()
 
     def insert_ipv4_entry(self, mac_addr: str, ip_address: str, port: int) -> None:
@@ -221,7 +221,7 @@ class Controller(object):
 
     def _insert_ipv4_local_breakout_entry(self, table_entry: TableEntry):
         te_hash = _hash(table_entry)
-        self.ipv4_table_entries[te_hash] = table_entry
+        self.table_entries[te_hash] = table_entry
         table_entry.insert()
 
     def start(self, timeout=None) -> None:

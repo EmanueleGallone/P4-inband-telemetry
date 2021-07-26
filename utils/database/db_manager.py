@@ -70,9 +70,3 @@ class DBManager(ABC):
     @abstractmethod
     def close_connection(self):
         pass
-
-
-if __name__ == '__main__':
-    db = DBManager()
-
-    print(db.dump())
