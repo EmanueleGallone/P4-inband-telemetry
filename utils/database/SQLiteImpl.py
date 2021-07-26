@@ -16,7 +16,7 @@
 #
 
 import sqlite3
-from utils.db_manager import DBManager
+from utils.database.db_manager import DBManager
 
 
 class SQLiteImpl(DBManager):
