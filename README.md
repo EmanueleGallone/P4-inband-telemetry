@@ -67,3 +67,4 @@ Ping should work after 1-2 packets are sent.
 ## References
 * INT P4 headers, receive and send python scripts partially forked from [github.com/leandrocalmeida](https://github.com/leandrocalmeida/P4)
 * P4 [p4lang/tutorials](https://github.com/p4lang/tutorials)
+* P4 GTP traffic handling [GTPV1-P4](https://github.com/Dscano/GTPV1-P4.git)

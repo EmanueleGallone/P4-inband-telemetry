@@ -13,6 +13,18 @@ const bit<8> IP_PROTOCOLS_IPV6         =  41;
 const bit<8> IP_PROTOCOLS_ICMPV6       =  58;
 const bit<8> IP_PROTOCOLS_EXPERIMENTAL = 253;
 
+#define ETH_HDR_SIZE 14
+#define IPV4_HDR_SIZE 20
+#define UDP_HDR_SIZE 8
+#define GTP_HDR_SIZE 8
+
+const bit<4> IPV4_MIN_IHL = 5;
+const bit<8> DEFAULT_IPV4_TTL = 57;
+
+#define UDP_PORT_GTP 2152
+#define GTP_VERSION 0x01
+#define GTP_MTYPE 0xff
+
 #define MAX_HOPS 10
 #define CONTROLLER_PORT 255
 
@@ -35,6 +47,8 @@ typedef bit<32>  enq_timestamp_t;
 typedef bit<19>  enq_qdepth_t;
 typedef bit<32>  deq_timedelta_t;
 typedef bit<19>  deq_qdepth_t;
+
+typedef bit<32>  teid_t;
 
 header ethernet_h {
     macAddr_t dstAddr;
@@ -97,6 +111,22 @@ header udp_h {
     bit<16> checksum;
 }
 
+header gtp_h{
+    bit<3>  ver;
+    bit<1>  pt;
+    bit<1>  rsvd;
+    bit<1>  e;
+    bit<1>  s;
+    bit<1>  pn;
+    bit<8>  msgtype;
+    bit<16> total_len;
+    teid_t teid;
+    // optional fields
+    //bit<16> sequence_number;
+    //bit<8>  npdu;
+    //bit<8>  next_ext_hdr;
+}
+
 @controller_header("packet_out")
 header packet_out_h {
     egress_port_t egress_port;
@@ -148,6 +178,9 @@ struct headers_t {
     icmp_h                             icmp;
     tcp_h                              tcp;
     udp_h                              udp;
+    gtp_h                              gtp_header;
+    ipv4_h                             internal_ipv4;
+    udp_h                              internal_udp;
     nodeCount_h                        nodeCount;
     InBandNetworkTelemetry_h[MAX_HOPS] INT;
 }
@@ -221,6 +254,19 @@ parser MyParser(packet_in packet,
 
     state parse_udp {
         packet.extract(hdr.udp);
+        transition select (hdr.udp.dstPort) {
+            UDP_PORT_GTP: parse_gtp_header;
+            default: accept;
+        }
+    }
+
+    state parse_gtp_header {
+        packet.extract(hdr.gtp_header);
+        transition parse_internal_ipv4;
+    }
+
+    state parse_internal_ipv4 {
+        packet.extract(hdr.internal_ipv4);
         transition accept;
     }
 
@@ -250,6 +296,115 @@ control MyVerifyChecksum(inout headers_t hdr, inout metadata meta) {
     apply {  }
 }
 
+/*************************************************************************
+************   G T P    C O N T R O L S   *************
+*************************************************************************/
+
+control table_add_gtp(inout headers_t hdr,
+                      inout standard_metadata_t standard_metadata) {
+
+    action encap_gtp(teid_t teid, ipv4Addr_t srcAddr , ipv4Addr_t dstAddr, egress_port_t port) {
+
+    	standard_metadata.egress_spec = port;
+
+        //IP Gateway
+        hdr.internal_ipv4 = hdr.ipv4;
+        hdr.internal_udp = hdr.udp;
+
+        hdr.ipv4.setValid();
+        hdr.ipv4.srcAddr = srcAddr;
+        hdr.ipv4.dstAddr = dstAddr;
+        hdr.ipv4.version  = (bit<4>)IP_PROTOCOLS_IPV4;
+        hdr.ipv4.ihl = IPV4_MIN_IHL;
+        hdr.ipv4.diffserv = 0;
+        hdr.ipv4.totalLen = hdr.ipv4.totalLen
+                + (IPV4_HDR_SIZE + UDP_HDR_SIZE+ GTP_HDR_SIZE);
+        hdr.ipv4.identification = 0x1513;
+        hdr.ipv4.flags = 0;
+        hdr.ipv4.fragOffset = 0 ;
+        hdr.ipv4.ttl = DEFAULT_IPV4_TTL;
+        hdr.ipv4.protocol = IP_PROTOCOLS_UDP;
+
+        //UDP
+        hdr.udp.setValid();
+        hdr.udp.srcPort = 56005;
+        hdr.udp.dstPort = UDP_PORT_GTP;
+        hdr.udp.len = hdr.internal_ipv4.totalLen + (UDP_HDR_SIZE +GTP_HDR_SIZE);
+        hdr.udp.checksum = 0;
+
+        //insert GTP header
+        hdr.gtp_header.setValid();
+        hdr.gtp_header.ver = GTP_VERSION;
+        hdr.gtp_header.pt = 1;
+        hdr.gtp_header.rsvd = 0;
+        hdr.gtp_header.e = 0;
+        hdr.gtp_header.s = 0;
+        hdr.gtp_header.pn = 0;
+        hdr.gtp_header.msgtype = GTP_MTYPE;
+        hdr.gtp_header.total_len = hdr.ipv4.totalLen;
+        hdr.gtp_header.teid = teid;
+
+    }
+
+
+    table table_encap_gtp {
+        key = {
+            hdr.ipv4.dstAddr   : exact;
+            hdr.ipv4.srcAddr   : exact;
+            hdr.ipv4.protocol   : exact;
+
+        }
+        actions = {
+            encap_gtp;
+            NoAction;
+        }
+        const default_action = NoAction();
+
+    }
+
+    apply {
+        table_encap_gtp.apply();
+     }
+}
+
+control table_rem_gtp(inout headers_t hdr,
+                      inout standard_metadata_t standard_metadata) {
+
+    action decap_gtp(egress_port_t port) {
+
+        standard_metadata.egress_spec = port;
+
+        hdr.ipv4.setInvalid();
+        hdr.udp.setInvalid();
+        hdr.gtp_header.setInvalid();
+    }
+
+
+    action set_output_change_teid (egress_port_t port, teid_t teid) {
+
+        standard_metadata.egress_spec = port;
+        hdr.gtp_header.teid = teid;
+    }
+
+
+    table table_decap_gtp {
+        key = {
+            hdr.gtp_header.teid    : exact;
+        }
+        actions = {
+            decap_gtp;
+            set_output_change_teid;
+            NoAction;
+        }
+        const default_action = NoAction();
+
+    }
+
+    apply {
+        table_decap_gtp.apply();
+     }
+}
+
 
 /*************************************************************************
 **************  I N G R E S S   P R O C E S S I N G   *******************
@@ -270,6 +425,8 @@ control MyIngress(inout headers_t hdr,
         hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
         hdr.ethernet.dstAddr = dstAddr;
     }
+
+
 
     action local_breakout(ipv4Addr_t dstAddr){
         // TODO is this the best way to perform a local breakout?
@@ -330,6 +487,16 @@ control MyIngress(inout headers_t hdr,
             hdr.packet_out.setInvalid();
             exit; // no need to further execute the pipeline
         }
+
+        /*
+        TODO specify GTP encap-decap logic
+        if(!hdr.gtp_header.isValid()) {
+            table_add_gtp.apply(hdr, standard_metadata);
+        }
+        else {
+            table_rem_gtp.apply(hdr, standard_metadata);
+        }
+        */
 
         if (hdr.ipv4.isValid()) {
             dbg_table.apply();
