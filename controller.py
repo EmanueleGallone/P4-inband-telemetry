@@ -162,6 +162,8 @@ class Controller(object):
             self.insert_ipv4_local_breakout_entry(src_addr, dst_addr, breakout_dst_addr)
 
         if self._check_db():
+            # TODO if no rule is detected, set ipv4_entry to drop packets
+
             self.insert_ipv4_entry(mac_address, dst_addr, port)  # setup connectivity
 
             # done inserting new entry, now send the received packet_in as a packet_out
