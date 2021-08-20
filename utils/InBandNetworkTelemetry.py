@@ -5,6 +5,8 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP
 from scapy.sendrecv import sendp, sniff
 from scapy.arch import get_if_hwaddr
+from scapy.contrib.gtp import GTP_U_Header
+from scapy.layers.inet import ICMP
 
 
 class InBandNetworkTelemetry(Packet):

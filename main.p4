@@ -381,6 +381,7 @@ control table_rem_gtp(inout headers_t hdr,
 
 
     action set_output_change_teid (egress_port_t port, teid_t teid) {
+        //Perform traffic steering
 
         standard_metadata.egress_spec = port;
         hdr.gtp_header.teid = teid;
@@ -397,6 +398,9 @@ control table_rem_gtp(inout headers_t hdr,
             NoAction;
         }
         const default_action = NoAction();
+        const entries = { // Debug. The table will be configured by controller.
+            (0) : decap_gtp(4); //setting egress_port=4
+        }
 
     }
 
@@ -493,10 +497,15 @@ control MyIngress(inout headers_t hdr,
         if(!hdr.gtp_header.isValid()) {
             table_add_gtp.apply(hdr, standard_metadata);
         }
-        else {
-            table_rem_gtp.apply(hdr, standard_metadata);
+        if(standard_metadata.ingress_port == 1){
+            table_add_gtp.apply(hdr, standard_metadata);
         }
         */
+
+        if(hdr.gtp_header.isValid()){
+            table_rem_gtp.apply(hdr, standard_metadata);
+        }
+
 
         if (hdr.ipv4.isValid()) {
             dbg_table.apply();
