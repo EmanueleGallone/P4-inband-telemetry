@@ -581,23 +581,42 @@ control MyEgress(inout headers_t hdr,
 
 control MyComputeChecksum(inout headers_t hdr, inout metadata meta) {
      apply {
-	update_checksum(
-	    hdr.ipv4.isValid(),
-            { hdr.ipv4.version,
-	      hdr.ipv4.ihl,
-              hdr.ipv4.diffserv,
-              hdr.ipv4.totalLen,
-              hdr.ipv4.identification,
-              hdr.ipv4.flags,
-              hdr.ipv4.fragOffset,
-              hdr.ipv4.ttl,
-              hdr.ipv4.protocol,
-              hdr.ipv4.srcAddr,
-              hdr.ipv4.dstAddr },
-            hdr.ipv4.hdrChecksum,
+        update_checksum(
+            hdr.ipv4.isValid(),
+                { hdr.ipv4.version,
+                  hdr.ipv4.ihl,
+                  hdr.ipv4.diffserv,
+                  hdr.ipv4.totalLen,
+                  hdr.ipv4.identification,
+                  hdr.ipv4.flags,
+                  hdr.ipv4.fragOffset,
+                  hdr.ipv4.ttl,
+                  hdr.ipv4.protocol,
+                  hdr.ipv4.srcAddr,
+                  hdr.ipv4.dstAddr
+                },
+                hdr.ipv4.hdrChecksum,
+                HashAlgorithm.csum16);
+
+        update_checksum(hdr.internal_ipv4.isValid(),
+            {
+                hdr.internal_ipv4.version,
+                hdr.internal_ipv4.ihl,
+                hdr.internal_ipv4.diffserv,
+                hdr.internal_ipv4.totalLen,
+                hdr.internal_ipv4.identification,
+                hdr.internal_ipv4.flags,
+                hdr.internal_ipv4.fragOffset,
+                hdr.internal_ipv4.ttl,
+                hdr.internal_ipv4.protocol,
+                hdr.internal_ipv4.srcAddr,
+                hdr.internal_ipv4.dstAddr
+            },
+            hdr.internal_ipv4.hdrChecksum,
             HashAlgorithm.csum16);
-    }
-}
+
+    } // end of apply{}
+} // end of MyComputeChecksum
 
 /*************************************************************************
 ***********************  D E P A R S E R  *******************************
@@ -605,12 +624,22 @@ control MyComputeChecksum(inout headers_t hdr, inout metadata meta) {
 
 control MyDeparser(packet_out packet, in headers_t hdr) {
     apply {
+        //Packet-IN Handling
         packet.emit(hdr.packet_in);
+
+        //Canonical Traffic Handling
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
         packet.emit(hdr.ipv6);
         packet.emit(hdr.udp);
         packet.emit(hdr.tcp);
+
+        //GTP traffic
+        packet.emit(hdr.gtp_header);
+        packet.emit(hdr.internal_ipv4);
+        packet.emit(hdr.internal_udp);
+
+        //INT report
         packet.emit(hdr.nodeCount);
         packet.emit(hdr.INT);                 
     }
