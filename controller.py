@@ -252,7 +252,7 @@ if __name__ == '__main__':
                         default='build/main.p4.p4info.txt')
     parser.add_argument('--bmv2-json', help='BMv2 JSON file from p4c',
                         type=str, action="store", required=False,
-                        default='build/basic.json')
+                        default='build/main.json')
     parser.add_argument('--grpc-addr', help='grpc address to P4Runtime server (e.g. localhost:50051)',
                         type=str, required=False, default="localhost:50051")
     parser.add_argument('--device-id', help='P4Runtime server device id',
